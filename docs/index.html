@@ -22,6 +22,8 @@
   --ring: rgba(15,20,23,0.10);
   --ctx-dot: rgba(70,82,90,0.28);
   --gap-band: rgba(132,140,144,0.12);
+  --nbhd-edge: rgba(15,20,23,0.14);
+  --nbhd-hover: rgba(15,20,23,0.55);
   --accent: #1c5cab;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
   --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
@@ -35,7 +37,7 @@
   :root:not([data-theme="light"]) {
     --page: #0e1113; --surface: #171b1d; --water: #101416; --land: #1d2225; --land-edge: #343c40;
     --ink: #f4f6f7; --ink-2: #bcc4c8; --ink-3: #818a8f; --hair: #2a3134; --ring: rgba(255,255,255,0.10);
-    --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec;
+    --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec; --nbhd-edge: rgba(255,255,255,0.10); --nbhd-hover: rgba(255,255,255,0.6);
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767; --other: #4d5559;
     --seq-0: #104281; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #6da7ec; --seq-4: #cde2fb;
@@ -45,7 +47,7 @@
 :root[data-theme="dark"] {
   --page: #0e1113; --surface: #171b1d; --water: #101416; --land: #1d2225; --land-edge: #343c40;
   --ink: #f4f6f7; --ink-2: #bcc4c8; --ink-3: #818a8f; --hair: #2a3134; --ring: rgba(255,255,255,0.10);
-  --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec;
+  --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec; --nbhd-edge: rgba(255,255,255,0.10); --nbhd-hover: rgba(255,255,255,0.6);
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
   --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767; --other: #4d5559;
   --seq-0: #104281; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #6da7ec; --seq-4: #cde2fb;
@@ -97,6 +99,7 @@ button, .seg label { font: inherit; color: var(--ink); }
 .plate canvas:active { cursor: grabbing; }
 .map-legend { position: absolute; left: 12px; top: 12px; display: grid; gap: 6px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--ring); border-radius: 8px; padding: 10px 12px; max-width: calc(100% - 24px); pointer-events: auto; }
 .map-legend .lg-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.map-legend .lg-sub { font-size: 11.5px; color: var(--ink-3); padding-left: 18px; margin-top: -4px; max-width: 300px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px var(--surface); }
 .lg-row .n { margin-left: auto; padding-left: 14px; color: var(--ink-2); font-size: 12px; }
 .lg-row .x { border: 0; background: none; padding: 0 0 0 6px; cursor: pointer; color: var(--ink-3); font-size: 14px; line-height: 1; }
@@ -284,9 +287,10 @@ button, .seg label { font: inherit; color: var(--ink); }
   const tok = (name) => css().getPropertyValue(name).trim();
   const tAt = (y) => (y === 2026 ? 2026.75 : y + 0.5);
 
-  const [data, boros] = await Promise.all([
+  const [data, boros, nbhds] = await Promise.all([
     fetch("data.json").then((r) => r.json()),
     fetch("boroughs.json").then((r) => r.json()),
+    fetch("neighborhoods.json").then((r) => r.json()),
   ]);
   document.getElementById("loading").remove();
 
@@ -294,7 +298,9 @@ button, .seg label { font: inherit; color: var(--ink); }
   const regions = data.regions;
   const regionOf = new Array(cuisines.length);
   regions.forEach((r, i) => r.cuisines.forEach((c) => (regionOf[c] = i)));
-  const rows = data.rows.map((r) => ({ lat: r[0], lon: r[1], c: r[2], open: r[3], close: r[4] || 9999, name: r[5], addr: r[6] }));
+  const rows = data.rows.map((r) => ({ lat: r[0], lon: r[1], c: r[2], open: r[3], close: r[4] || 9999, name: r[5], addr: r[6], nb: r[7] }));
+  const nbName = (i) => (i >= 0 ? nbhds.features[i].properties.name : "");
+  const nbFull = (i) => (i >= 0 ? nbhds.features[i].properties.name + ", " + nbhds.features[i].properties.boro : "");
   const OLD = 2013; // opened before the archive window
 
   const alive = (r, t) => r.open <= t && r.close > t;
@@ -361,9 +367,28 @@ button, .seg label { font: inherit; color: var(--ink); }
     HEX_R = Math.abs(a[1] - b[1]) / Math.sqrt(3);
     if (state.mode === "diversity") bins = hexBins();
     rows.forEach((r, i) => { const p = projection([r.lon, r.lat]); pts[2 * i] = p[0]; pts[2 * i + 1] = p[1]; });
+    nbGeo = nbhds.features.map((f) => {
+      const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+      const rings = polys.flat().map((ring) => ring.map((c) => projection(c)));
+      const all = rings.flat();
+      return { rings, x0: d3.min(all, (p) => p[0]), x1: d3.max(all, (p) => p[0]), y0: d3.min(all, (p) => p[1]), y1: d3.max(all, (p) => p[1]),
+        lp: projection(f.properties.lp), area: d3.sum(rings, (r) => Math.abs(d3.polygonArea(r))) };
+    });
+    labelOrder = nbhds.features.map((f, i) => i).filter((i) => nbhds.features[i].properties.label).sort((a, b) => nbGeo[b].area - nbGeo[a].area);
     buildIndex(); draw();
   }
 
+  let nbGeo = [], labelOrder = [], hoverNb = -1;
+  function nbAt(x, y) {
+    for (let i = 0; i < nbGeo.length; i++) {
+      const g = nbGeo[i];
+      if (x < g.x0 || x > g.x1 || y < g.y0 || y > g.y1) continue;
+      let inside = false;
+      for (const ring of g.rings) if (d3.polygonContains(ring, [x, y])) inside = !inside;
+      if (inside) return i;
+    }
+    return -1;
+  }
   let visible = [];   // indices of rows drawn (context)
   let picked = [];    // indices of rows drawn in color
   let quad = null;
@@ -417,6 +442,9 @@ button, .seg label { font: inherit; color: var(--ink); }
     ctx.beginPath(); d3.geoPath(projection, ctx)(boros);
     ctx.fillStyle = tok("--land"); ctx.fill();
     ctx.lineWidth = 1 / k; ctx.strokeStyle = tok("--land-edge"); ctx.stroke();
+    const nbPath = d3.geoPath(projection, ctx);
+    ctx.beginPath(); nbPath(nbhds);
+    ctx.lineWidth = 0.7 / k; ctx.strokeStyle = tok("--nbhd-edge"); ctx.stroke();
 
     if (state.mode === "diversity") {
       const hp = d3.range(6).map((a) => [Math.cos(Math.PI / 6 + a * Math.PI / 3) * (HEX_R - 0.6), Math.sin(Math.PI / 6 + a * Math.PI / 3) * (HEX_R - 0.6)]);
@@ -444,7 +472,33 @@ button, .seg label { font: inherit; color: var(--ink); }
       ctx.beginPath(); ctx.arc(pts[2 * hover], pts[2 * hover + 1], 6 / k, 0, Math.PI * 2);
       ctx.lineWidth = 2 / k; ctx.strokeStyle = tok("--ink"); ctx.stroke();
     }
+    if (hoverNb >= 0) {
+      ctx.beginPath(); nbPath(nbhds.features[hoverNb]);
+      ctx.lineWidth = 1.6 / k; ctx.strokeStyle = tok("--nbhd-hover"); ctx.stroke();
+    }
     ctx.restore();
+    drawLabels(k);
+  }
+
+  // Neighborhood names in screen space, largest first, skipping any that would collide.
+  function drawLabels(k) {
+    if (k < 2.2) return;
+    ctx.font = `600 ${k >= 5 ? 12 : 11}px ${tok("--f-body")}`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+    ctx.lineWidth = 3; ctx.strokeStyle = tok("--land"); ctx.fillStyle = tok("--ink-2");
+    const placed = [];
+    for (const i of labelOrder) {
+      const g = nbGeo[i];
+      if (Math.sqrt(g.area) * k < 70) continue; // too small on screen at this zoom
+      const [x, y] = transform.apply(g.lp);
+      if (x < 0 || y < 0 || x > W || y > H) continue;
+      const name = nbhds.features[i].properties.name;
+      const w = ctx.measureText(name).width, h = 14;
+      const box = [x - w / 2 - 3, y - h / 2, x + w / 2 + 3, y + h / 2];
+      if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+      placed.push(box);
+      ctx.strokeText(name, x, y); ctx.fillText(name, x, y);
+    }
   }
 
   const zoom = d3.zoom().scaleExtent([1, 24]).on("zoom", (e) => { transform = e.transform; hideTip(); draw(); });
@@ -464,7 +518,7 @@ button, .seg label { font: inherit; color: var(--ink); }
     if (top + th > window.innerHeight - 8) top = y - th - 14;
     tip.style.left = Math.max(8, left) + "px"; tip.style.top = Math.max(8, top) + "px";
   }
-  function hideTip() { tip.hidden = true; if (hover != null) { hover = null; draw(); } }
+  function hideTip() { tip.hidden = true; if (hover != null || hoverNb >= 0) { hover = null; hoverNb = -1; draw(); } }
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const fmtDate = (f) => { const y = Math.floor(f); const m = Math.min(11, Math.floor((f - y) * 12)); return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m] + " " + y; };
 
@@ -478,6 +532,8 @@ button, .seg label { font: inherit; color: var(--ink); }
       if (!best || bd > HEX_R * HEX_R) return hideTip();
       showTip(e.clientX, e.clientY, (t) => {
         t.append(el("div", "t-name", `${best.cuis.size} cuisines · ${best.n} restaurants`));
+        const hn = nbAt(...hexCenter(best));
+        if (hn >= 0) t.append(el("div", "t-meta", "around " + nbFull(hn)));
         const top = [...best.cuis.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
         for (const [c, n] of top) { const r = el("div", "t-row"); const i = el("i"); i.style.background = tok(SLOTS[regionOf[c]]); r.append(i, el("span", "t-sub", cuisines[c]), el("b", null, n)); t.append(r); }
         if (best.cuis.size > 6) t.append(el("div", "t-meta", `+ ${best.cuis.size - 6} more`));
@@ -485,18 +541,48 @@ button, .seg label { font: inherit; color: var(--ink); }
       return;
     }
     const found = quad && quad.find(mx, my, 12 / transform.k);
-    if (found == null) return hideTip();
-    if (hover !== found) { hover = found; draw(); }
+    if (found == null) {
+      const nb = nbAt(mx, my);
+      if (nb < 0) return hideTip();
+      if (hover != null || hoverNb !== nb) { hover = null; hoverNb = nb; draw(); }
+      const s = nbStats(nb);
+      showTip(e.clientX, e.clientY, (t) => {
+        t.append(el("div", "t-name", nbhds.features[nb].properties.name));
+        t.append(el("div", "t-meta", `${nbhds.features[nb].properties.boro} · ${s.total} ethnic restaurants · ${s.cuis.size} cuisines`));
+        for (const c of state.picks) {
+          const row = el("div", "t-row"); const i = el("i"); i.style.background = pickColor(c);
+          row.append(i, el("span", "t-sub", cuisines[c]), el("b", null, s.cuis.get(c) || 0)); t.append(row);
+        }
+        const top = [...s.cuis.entries()].filter(([c]) => !state.picks.includes(c)).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        if (top.length) t.append(el("div", "t-meta", "Most common: " + top.map(([c, n]) => `${cuisines[c]} ${n}`).join(", ")));
+      });
+      return;
+    }
+    if (hover !== found || hoverNb !== -1) { hover = found; hoverNb = -1; draw(); }
     const r = rows[found];
     showTip(e.clientX, e.clientY, (t) => {
       t.append(el("div", "t-name", r.name || "Unnamed"));
-      t.append(el("div", "t-sub", cuisines[r.c] + " · " + r.addr));
+      t.append(el("div", "t-sub", cuisines[r.c] + (r.nb >= 0 ? " · " + nbFull(r.nb) : "")));
+      t.append(el("div", "t-meta", r.addr));
       const opened = r.open < OLD ? "Open before 2013" : "Opened ~" + fmtDate(r.open);
       const closed = r.close > 9000 ? "still open" : "closed ~" + fmtDate(r.close);
       t.append(el("div", "t-meta", opened + " · " + closed));
     });
   });
   canvas.addEventListener("pointerleave", hideTip);
+
+  let nbCache = { key: null, val: null };
+  function nbStats(nb) {
+    const key = nb + "|" + state.year + "|" + state.show;
+    if (nbCache.key === key) return nbCache.val;
+    const cuis = new Map(); let total = 0;
+    for (const i of visible.concat(picked)) {
+      const r = rows[i]; if (r.nb !== nb) continue;
+      total++; cuis.set(r.c, (cuis.get(r.c) || 0) + 1);
+    }
+    nbCache = { key, val: { total, cuis } };
+    return nbCache.val;
+  }
 
   // ---------- map legend ----------
   function renderMapLegend() {
@@ -521,11 +607,14 @@ button, .seg label { font: inherit; color: var(--ink); }
       const x = el("button", "x", "×"); x.setAttribute("aria-label", "Remove " + cuisines[c]); x.onclick = () => togglePick(c);
       row.append(d, el("span", null, cuisines[c]), el("span", "n num", n.toLocaleString()), x);
       lg.append(row);
+      const byNb = d3.rollups(picked.filter((i) => rows[i].c === c && rows[i].nb >= 0), (v) => v.length, (i) => rows[i].nb)
+        .sort((a, b) => b[1] - a[1]).slice(0, 3);
+      if (byNb.length) lg.append(el("div", "lg-sub", byNb.map(([nb, k]) => `${nbName(nb)} ${k}`).join(" · ")));
     }
     const ctxRow = el("div", "lg-row"); const d = el("span", "dot"); d.style.background = tok("--ctx-dot"); d.style.boxShadow = "none";
     ctxRow.append(d, el("span", "t-meta", "all other cuisines"));
     lg.append(ctxRow);
-    document.getElementById("mapNote").textContent = "Scroll or pinch to zoom · hover a dot for the restaurant";
+    document.getElementById("mapNote").textContent = "Scroll or pinch to zoom · hover a dot for the restaurant, or anywhere for the neighborhood";
   }
 
   // ---------- gazetteer ----------

@@ -23,7 +23,7 @@ page = f"""<!doctype html>
 </html>
 """
 open(os.path.join(DOCS, "index.html"), "w", encoding="utf-8").write(page)
-for f in ("data.json", "boroughs.json"):
+for f in ("data.json", "boroughs.json", "neighborhoods.json"):
     shutil.copy(os.path.join(WEB, f), os.path.join(DOCS, f))
 open(os.path.join(DOCS, ".nojekyll"), "w").close()
 print("wrote docs/")

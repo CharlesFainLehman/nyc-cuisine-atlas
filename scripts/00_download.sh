@@ -19,3 +19,4 @@ for ts in $SNAPSHOTS; do
 done
 curl -s -o raw_inspections.csv 'https://data.cityofnewyork.us/resource/43nn-pn8j.csv?$select=camis,dba,boro,building,street,zipcode,cuisine_description,inspection_date,inspection_type,latitude,longitude,nta&$limit=2000000'
 curl -s -o boroughs.geojson 'https://data.cityofnewyork.us/resource/gthc-hcne.geojson'
+curl -s -o nta2020.geojson 'https://data.cityofnewyork.us/resource/9nt8-h7nd.geojson?$limit=1000'

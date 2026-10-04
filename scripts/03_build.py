@@ -226,6 +226,26 @@ r = r[~(r["first_insp"].isna() & ~is_open)]
 
 # ---------- export ----------
 e = r.dropna(subset=["cuisine_group", "lat", "lon"]).copy()
+
+# Neighborhood (2020 NTA) for each restaurant
+from shapely import STRtree, points  # noqa: E402
+from shapely.geometry import mapping, shape  # noqa: E402
+
+with open(os.path.join(D, "nta2020.geojson")) as f:
+    nta = json.load(f)["features"]
+nta_geoms = [shape(ft["geometry"]) for ft in nta]
+tree = STRtree(nta_geoms)
+pt_idx, poly_idx = tree.query(points(e["lon"].to_numpy(), e["lat"].to_numpy()), predicate="within")
+nbhd = np.full(len(e), -1)
+nbhd[pt_idx] = poly_idx
+# points just offshore/on piers: nearest neighborhood within ~150 m
+miss = np.where(nbhd < 0)[0]
+if len(miss):
+    near = tree.query_nearest(points(e["lon"].to_numpy()[miss], e["lat"].to_numpy()[miss]),
+                              max_distance=0.0015, return_distance=False)
+    nbhd[miss[near[0]]] = near[1]
+e["nbhd"] = nbhd
+print("neighborhood assigned:", (nbhd >= 0).mean().round(4))
 print(len(r), "restaurants total;", len(e), "ethnic with coordinates")
 print(e["cuisine_group"].value_counts().to_string())
 
@@ -244,13 +264,14 @@ for x in e.itertuples():
         yfrac(x.open_date), yfrac(x.close_date) or 0,
         (x.dba or "").strip().title(),
         f"{(x.building or '').strip()} {' '.join((x.street or '').split()).title()}, {x.boro or ''}",
+        int(x.nbhd),
     ])
 
 out = {
     "generated": str(CURRENT.date()),
     "regions": [{"name": reg, "cuisines": [cidx[c] for c in cs]} for reg, cs in TAXONOMY.items()],
     "cuisines": cuisines,
-    "fields": ["lat", "lon", "cuisine", "open", "close", "name", "address"],
+    "fields": ["lat", "lon", "cuisine", "open", "close", "name", "address", "nbhd"],
     "rows": rows,
 }
 os.makedirs(os.path.join(ROOT, "web"), exist_ok=True)
@@ -266,8 +287,21 @@ for y in yrs:
     tab[y] = e[alive]["cuisine_group"].value_counts()
 print(pd.DataFrame(tab).fillna(0).astype(int).sort_values(2026, ascending=False).to_string())
 
+# ---------- neighborhood outlines (simplified) ----------
+# ntatype 0 = residential; 5-9 = parks, cemeteries, airports, islands (outlined, not labeled)
+nfeats = []
+for ft, geom in zip(nta, nta_geoms):
+    pr = ft["properties"]
+    lp = geom.representative_point() if geom.geom_type != "MultiPolygon" else max(geom.geoms, key=lambda g: g.area).representative_point()
+    m = json.loads(json.dumps(mapping(geom.simplify(0.00012, preserve_topology=True))),
+                   parse_float=lambda v: round(float(v), 5))
+    nfeats.append({"type": "Feature", "geometry": m, "properties": {
+        "name": pr["ntaname"], "boro": pr["boroname"], "label": pr["ntatype"] == "0",
+        "lp": [round(lp.x, 5), round(lp.y, 5)]}})
+with open(os.path.join(ROOT, "web", "neighborhoods.json"), "w") as f:
+    json.dump({"type": "FeatureCollection", "features": nfeats}, f, separators=(",", ":"))
+
 # ---------- borough outlines (simplified) ----------
-from shapely.geometry import mapping, shape  # noqa: E402
 
 with open(os.path.join(D, "boroughs.geojson")) as f:
     gj = json.load(f)
