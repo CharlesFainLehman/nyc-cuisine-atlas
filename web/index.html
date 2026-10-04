@@ -19,6 +19,7 @@
   --gap-band: rgba(132,140,144,0.12);
   --nbhd-edge: rgba(15,20,23,0.14);
   --nbhd-hover: rgba(15,20,23,0.55);
+  --nbhd-sel: #1c5cab;
   --accent: #1c5cab;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
   --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
@@ -32,7 +33,7 @@
   :root:not([data-theme="light"]) {
     --page: #0e1113; --surface: #171b1d; --water: #101416; --land: #1d2225; --land-edge: #343c40;
     --ink: #f4f6f7; --ink-2: #bcc4c8; --ink-3: #818a8f; --hair: #2a3134; --ring: rgba(255,255,255,0.10);
-    --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec; --nbhd-edge: rgba(255,255,255,0.10); --nbhd-hover: rgba(255,255,255,0.6);
+    --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec; --nbhd-edge: rgba(255,255,255,0.10); --nbhd-hover: rgba(255,255,255,0.6); --nbhd-sel: #86b6ef;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767; --other: #4d5559;
     --seq-0: #104281; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #6da7ec; --seq-4: #cde2fb;
@@ -42,7 +43,7 @@
 :root[data-theme="dark"] {
   --page: #0e1113; --surface: #171b1d; --water: #101416; --land: #1d2225; --land-edge: #343c40;
   --ink: #f4f6f7; --ink-2: #bcc4c8; --ink-3: #818a8f; --hair: #2a3134; --ring: rgba(255,255,255,0.10);
-  --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec; --nbhd-edge: rgba(255,255,255,0.10); --nbhd-hover: rgba(255,255,255,0.6);
+  --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec; --nbhd-edge: rgba(255,255,255,0.10); --nbhd-hover: rgba(255,255,255,0.6); --nbhd-sel: #86b6ef;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
   --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767; --other: #4d5559;
   --seq-0: #104281; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #6da7ec; --seq-4: #cde2fb;
@@ -158,6 +159,11 @@ button, .seg label { font: inherit; color: var(--ink); }
 .band { cursor: pointer; }
 .band:hover { filter: brightness(1.06); }
 
+.scope { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding-block: 2px; }
+.scope b { font-family: var(--f-display); font-size: 20px; font-weight: 700; }
+.scope .meta { color: var(--ink-3); font-size: 12.5px; }
+.share-box { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.share-url { width: 260px; max-width: 60vw; padding: 5px 8px; border: 1px solid var(--hair); border-radius: 6px; background: var(--page); color: var(--ink); font: 12px var(--f-data); }
 .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; padding-top: 8px; border-top: 1px solid var(--hair); }
 .notes h3 { font-size: 15px; margin-bottom: 4px; }
 .notes p { color: var(--ink-2); font-size: 13px; max-width: 62ch; }
@@ -197,6 +203,10 @@ button, .seg label { font: inherit; color: var(--ink); }
         <label><input type="radio" name="show" value="new" id="show-new"><span>Opened that year</span></label>
       </div>
     </div>
+    <div class="share-box">
+      <input class="share-url" id="shareUrl" readonly hidden aria-label="Link to this view">
+      <button class="btn" id="share">Copy link to this view</button>
+    </div>
   </div>
 
   <section class="atlas">
@@ -226,10 +236,17 @@ button, .seg label { font: inherit; color: var(--ink); }
     </aside>
   </section>
 
+  <div class="scope" id="scope">
+    <span class="eyebrow">Charts below show</span>
+    <b id="scopeName">All of New York City</b>
+    <span class="meta" id="scopeMeta">Click any neighborhood on the map to see its own numbers.</span>
+    <button class="btn" id="scopeClear" hidden>← All of NYC</button>
+  </div>
+
   <section class="figures">
     <div class="fig">
       <div class="fig-head">
-        <h2>Selected cuisines over time</h2>
+        <h2 id="lineTitle">Selected cuisines over time</h2>
         <div class="seg" role="radiogroup" aria-label="Line chart measure">
           <label><input type="radio" name="lineMode" value="open" id="line-open" checked><span>Open</span></label>
           <label><input type="radio" name="lineMode" value="new" id="line-new"><span>New openings</span></label>
@@ -311,8 +328,21 @@ button, .seg label { font: inherit; color: var(--ink); }
     });
   }
 
+  // Counts for the charts: citywide, or for the selected neighborhood.
+  const scopeCache = new Map();
+  function scoped() {
+    if (state.nb == null) return { open: cntOpen, nw: cntNew };
+    if (scopeCache.has(state.nb)) return scopeCache.get(state.nb);
+    const open = cuisines.map(() => YEARS.map(() => 0)), nw = cuisines.map(() => YEARS.map(() => 0));
+    for (const r of rows) {
+      if (r.nb !== state.nb) continue;
+      YEARS.forEach((y, i) => { if (alive(r, tAt(y))) open[r.c][i]++; if (openedIn(r, y)) nw[r.c][i]++; });
+    }
+    const v = { open, nw }; scopeCache.set(state.nb, v); return v;
+  }
+
   // ---------- state ----------
-  const state = { year: 2026, mode: "compare", show: "open", picks: [], lineMode: "open", compMode: "share", drill: null, query: "" };
+  const state = { year: 2026, mode: "compare", show: "open", picks: [], lineMode: "open", compMode: "share", drill: null, query: "", nb: null };
   const byName = Object.fromEntries(cuisines.map((c, i) => [c, i]));
   state.picks = ["Taiwanese & Bubble Tea", "Bangladeshi", "Yemeni"].map((n) => byName[n]).filter((x) => x != null);
   // Pick colors are bound to the pick, not its rank: slot stays with the cuisine until removed.
@@ -466,7 +496,11 @@ button, .seg label { font: inherit; color: var(--ink); }
       ctx.beginPath(); ctx.arc(pts[2 * hover], pts[2 * hover + 1], 6 / k, 0, Math.PI * 2);
       ctx.lineWidth = 2 / k; ctx.strokeStyle = tok("--ink"); ctx.stroke();
     }
-    if (hoverNb >= 0) {
+    if (state.nb != null) {
+      ctx.beginPath(); nbPath(nbhds.features[state.nb]);
+      ctx.lineWidth = 2.5 / k; ctx.strokeStyle = tok("--nbhd-sel"); ctx.stroke();
+    }
+    if (hoverNb >= 0 && hoverNb !== state.nb) {
       ctx.beginPath(); nbPath(nbhds.features[hoverNb]);
       ctx.lineWidth = 1.6 / k; ctx.strokeStyle = tok("--nbhd-hover"); ctx.stroke();
     }
@@ -542,13 +576,16 @@ button, .seg label { font: inherit; color: var(--ink); }
       const s = nbStats(nb);
       showTip(e.clientX, e.clientY, (t) => {
         t.append(el("div", "t-name", nbhds.features[nb].properties.name));
-        t.append(el("div", "t-meta", `${nbhds.features[nb].properties.boro} · ${s.total} ethnic restaurants · ${s.cuis.size} cuisines`));
+        const pr = nbhds.features[nb].properties;
+        if (pr.full !== pr.name) t.append(el("div", "t-meta", pr.full));
+        t.append(el("div", "t-meta", `${pr.boro} · ${s.total} ethnic restaurants · ${s.cuis.size} cuisines`));
         for (const c of state.picks) {
           const row = el("div", "t-row"); const i = el("i"); i.style.background = pickColor(c);
           row.append(i, el("span", "t-sub", cuisines[c]), el("b", null, s.cuis.get(c) || 0)); t.append(row);
         }
         const top = [...s.cuis.entries()].filter(([c]) => !state.picks.includes(c)).sort((a, b) => b[1] - a[1]).slice(0, 3);
         if (top.length) t.append(el("div", "t-meta", "Most common: " + top.map(([c, n]) => `${cuisines[c]} ${n}`).join(", ")));
+        t.append(el("div", "t-meta", nb === state.nb ? "Click to go back to all of NYC" : "Click to chart this neighborhood"));
       });
       return;
     }
@@ -564,6 +601,30 @@ button, .seg label { font: inherit; color: var(--ink); }
     });
   });
   canvas.addEventListener("pointerleave", hideTip);
+  canvas.addEventListener("click", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const nb = nbAt(...transform.invert([e.clientX - rect.left, e.clientY - rect.top]));
+    selectNb(nb < 0 || nb === state.nb ? null : nb);
+  });
+  function selectNb(nb) {
+    state.nb = nb;
+    renderScope(); renderLine(); renderComp(); draw();
+  }
+  function renderScope() {
+    const on = state.nb != null;
+    const pr = on ? nbhds.features[state.nb].properties : null;
+    document.getElementById("scopeName").textContent = on ? `${pr.name}, ${pr.boro}` : "All of New York City";
+    document.getElementById("scopeMeta").textContent = on ? (pr.full !== pr.name ? pr.full : "") : "Click any neighborhood on the map to see its own numbers.";
+    document.getElementById("scopeClear").hidden = !on;
+  }
+  document.getElementById("scopeClear").onclick = () => selectNb(null);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.nb != null) selectNb(null); });
+  function zoomToNb(nb) {
+    const g = nbGeo[nb]; if (!g) return;
+    const k = Math.max(1, Math.min(10, 0.45 * Math.min(W / (g.x1 - g.x0), H / (g.y1 - g.y0))));
+    const cx = (g.x0 + g.x1) / 2, cy = (g.y0 + g.y1) / 2;
+    sel.call(zoom.transform, d3.zoomIdentity.translate(W / 2 - k * cx, H / 2 - k * cy).scale(k));
+  }
 
   let nbCache = { key: null, val: null };
   function nbStats(nb) {
@@ -705,7 +766,8 @@ button, .seg label { font: inherit; color: var(--ink); }
   }
   function renderLine() {
     const svg = d3.select("#lineChart"); svg.selectAll("*").remove();
-    const src = state.lineMode === "open" ? cntOpen : cntNew;
+    const sc = scoped();
+    const src = state.lineMode === "open" ? sc.open : sc.nw;
     const series = state.picks.map((c) => ({ c, v: src[c] }));
     const legend = document.getElementById("lineLegend"); legend.replaceChildren();
     for (const s of series) { const b = el("button"); const l = el("span", "ln"); l.style.background = pickColor(s.c); b.append(l, document.createTextNode(cuisines[s.c])); b.onclick = () => togglePick(s.c); legend.append(b); }
@@ -724,10 +786,13 @@ button, .seg label { font: inherit; color: var(--ink); }
       svg.append("circle").attr("cx", lx(YEARS[last])).attr("cy", y(s.v[last])).attr("r", 4).attr("fill", col).attr("stroke", "var(--surface)").attr("stroke-width", 2);
     }
     crosshair(svg, lx, LM.t, LH - LM.b, (yi) => series.map((s) => [pickColor(s.c), cuisines[s.c], s.v[yi].toLocaleString()]));
+    document.getElementById("lineTitle").textContent = "Selected cuisines over time" + (state.nb == null ? "" : " in " + nbName(state.nb));
+    syncHash();
   }
 
   // ---------- composition chart ----------
   function compSeries() {
+    const cntOpen = scoped().open;
     if (state.drill == null) {
       return regions.map((r, ri) => ({ key: "r" + ri, label: r.name, color: tok(SLOTS[ri]), v: YEARS.map((y, yi) => d3.sum(r.cuisines, (c) => cntOpen[c][yi])), region: ri }));
     }
@@ -783,14 +848,64 @@ button, .seg label { font: inherit; color: var(--ink); }
       else if (s.cuisine != null) b.onclick = () => togglePick(s.cuisine);
       lg.append(b);
     }
+    const where = state.nb == null ? "" : " in " + nbName(state.nb);
+    if (!d3.sum(tot)) svg.append("text").attr("x", LW / 2).attr("y", LH / 2).attr("text-anchor", "middle").text("No ethnic restaurants here in any year");
     document.getElementById("crumb").hidden = state.drill == null;
     document.getElementById("crumbName").textContent = state.drill == null ? "" : regions[state.drill].name;
-    document.getElementById("compTitle").textContent = state.drill == null ? "The mix, year by year" : regions[state.drill].name + ", year by year";
+    document.getElementById("compTitle").textContent = (state.drill == null ? "The mix, year by year" : regions[state.drill].name + ", year by year") + where;
+    syncHash();
     document.getElementById("compNote").textContent = state.drill == null
       ? "Share of ethnic restaurants by region of origin. Click a band or legend entry to break that region into its cuisines."
       : "Cuisines within this region. Click a band to put that cuisine on the map.";
   }
   document.getElementById("compBack").onclick = () => { state.drill = null; renderComp(); };
+
+  // ---------- shareable links ----------
+  // State lives in a plain #token (letters, digits, . _ ~ -) so it survives every host.
+  const PAGES_URL = "https://charlesfainlehman.github.io/nyc-cuisine-atlas/";
+  const slug = (t) => t.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const cuisineBySlug = Object.fromEntries(cuisines.map((c, i) => [slug(c), i]));
+  const nbByCode = Object.fromEntries(nbhds.features.map((f, i) => [f.properties.code, i]));
+  function stateToken() {
+    const p = ["y_" + state.year, "c_" + (state.picks.length ? state.picks.map((c) => slug(cuisines[c])).join("~") : "none")];
+    if (state.mode !== "compare") p.push("v_diversity");
+    if (state.show !== "open") p.push("s_new");
+    if (state.nb != null) p.push("n_" + nbhds.features[state.nb].properties.code);
+    if (state.drill != null) p.push("r_" + state.drill);
+    if (state.compMode !== "share") p.push("m_count");
+    if (state.lineMode !== "open") p.push("l_new");
+    return p.join(".");
+  }
+  function readToken(h) {
+    const kv = Object.fromEntries(h.replace(/^#/, "").split(".").map((x) => [x.slice(0, 1), x.slice(2)]).filter(([k, v]) => v));
+    if (!kv.y && !kv.c) return false;
+    const y = +kv.y; if (y >= 2015 && y <= 2026) state.year = y;
+    if (kv.c) state.picks = kv.c === "none" ? [] : kv.c.split("~").map((x) => cuisineBySlug[x]).filter((x) => x != null).slice(0, 3);
+    if (kv.v === "diversity") state.mode = "diversity";
+    if (kv.s === "new") state.show = "new";
+    if (kv.n && nbByCode[kv.n] != null) state.nb = nbByCode[kv.n];
+    if (kv.r && regions[+kv.r]) state.drill = +kv.r;
+    if (kv.m === "count") state.compMode = "count";
+    if (kv.l === "new") state.lineMode = "new";
+    return true;
+  }
+  let hashReady = false;
+  function syncHash() {
+    if (!hashReady) return;
+    try { history.replaceState(null, "", "#" + stateToken()); } catch (err) { /* sandboxed frame */ }
+  }
+  const shareBtn = document.getElementById("share"), shareUrl = document.getElementById("shareUrl");
+  shareBtn.onclick = () => {
+    const base = location.hostname.endsWith("github.io") ? location.origin + location.pathname : PAGES_URL;
+    const url = base + "#" + stateToken();
+    const fallback = () => { shareUrl.value = url; shareUrl.hidden = false; shareUrl.focus(); shareUrl.select(); };
+    try {
+      navigator.clipboard.writeText(url).then(() => {
+        shareUrl.hidden = true; shareBtn.textContent = "Link copied";
+        setTimeout(() => (shareBtn.textContent = "Copy link to this view"), 1800);
+      }, fallback);
+    } catch (err) { fallback(); }
+  };
 
   // ---------- wiring ----------
   const ticks = document.getElementById("ticks");
@@ -814,14 +929,26 @@ button, .seg label { font: inherit; color: var(--ink); }
   function refreshMap() {
     filterRows();
     bins = state.mode === "diversity" ? hexBins() : [];
-    buildIndex(); renderMapLegend(); draw();
+    buildIndex(); renderMapLegend(); draw(); syncHash();
   }
   function refreshAll() { assignSlots(); refreshMap(); renderList(); renderLine(); renderComp(); }
 
-  new ResizeObserver(() => resize()).observe(plate);
+  // Restore a shared view, then sync the controls to it.
+  const fromLink = readToken(location.hash);
+  slider.value = state.year; document.getElementById("yearLabel").textContent = state.year;
+  document.getElementById("mode-" + state.mode).checked = true;
+  document.getElementById("show-" + state.show).checked = true;
+  document.getElementById("comp-" + state.compMode).checked = true;
+  document.getElementById("line-" + state.lineMode).checked = true;
+  pickSlot.clear(); renderScope();
+
+  let firstFit = true;
+  new ResizeObserver(() => { resize(); if (firstFit && W) { firstFit = false; if (fromLink && state.nb != null) zoomToNb(state.nb); } }).observe(plate);
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { refreshAll(); });
   new MutationObserver(() => refreshAll()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+  hashReady = fromLink;
   renderStats(); refreshAll(); resize();
+  hashReady = true;
 })();
 </script>

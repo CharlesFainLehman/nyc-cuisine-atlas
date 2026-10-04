@@ -12,7 +12,9 @@ Inspired by Chris Goldammer's [Yemeni coffee shop map](https://x.com/floor_per_a
 - A year slider (2015–2026) over ~27,000 restaurants in 57 cuisines and 8 regions
 - **Compare** up to three cuisines on the map, or switch to **Diversity** (distinct cuisines per ~400 m hexagon)
 - A cuisine index with counts, sparklines and change since 2015
-- Neighborhood outlines and names (2020 NTAs); hover anywhere for a neighborhood's cuisine mix
+- Neighborhood outlines and names (2020 NTAs, shortened to common names); hover for a neighborhood's cuisine mix, click to chart it
+- "Copy link to this view" saves year, cuisines, view and neighborhood in the URL, e.g.
+  [Yemeni and Bangladeshi in Woodside](https://charlesfainlehman.github.io/nyc-cuisine-atlas/#y_2026.c_yemeni~bangladeshi.n_QN0203)
 - Line chart of selected cuisines, and the regional mix year by year (click a region to drill in)
 
 ## Data and method

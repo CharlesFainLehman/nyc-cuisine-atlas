@@ -1,4 +1,5 @@
 """Wrap web/index.html (authored as an artifact body) in a full HTML document for GitHub Pages."""
+import hashlib
 import os
 import shutil
 
@@ -22,8 +23,12 @@ page = f"""<!doctype html>
 </body>
 </html>
 """
-open(os.path.join(DOCS, "index.html"), "w", encoding="utf-8").write(page)
+# Version data URLs by content hash so browsers never pair new page code with stale cached data.
 for f in ("data.json", "boroughs.json", "neighborhoods.json"):
     shutil.copy(os.path.join(WEB, f), os.path.join(DOCS, f))
+    v = hashlib.md5(open(os.path.join(WEB, f), "rb").read()).hexdigest()[:8]
+    assert page.count(f'fetch("{f}")') == 1, f
+    page = page.replace(f'fetch("{f}")', f'fetch("{f}?v={v}")')
+open(os.path.join(DOCS, "index.html"), "w", encoding="utf-8").write(page)
 open(os.path.join(DOCS, ".nojekyll"), "w").close()
 print("wrote docs/")

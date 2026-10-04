@@ -288,15 +288,41 @@ for y in yrs:
 print(pd.DataFrame(tab).fillna(0).astype(int).sort_values(2026, ascending=False).to_string())
 
 # ---------- neighborhood outlines (simplified) ----------
+# Short display names: first segment of the official NTA name, with a few hand fixes.
+KEEP_HYPHEN = ("Bedford-Stuyvesant", "Co-op City", "Green-Wood")
+SHORT_OVERRIDES = {
+    "MN0501": "Flatiron", "MN0701": "Lincoln Square", "MN0703": "Manhattan Valley",
+    "MN0801": "Lenox Hill", "MN0802": "Carnegie Hill", "MN0803": "Yorkville",
+    "MN0603": "Murray Hill", "QN0704": "Murray Hill (Queens)", "BK1802": "Marine Park",
+    "BK1891": "Marine Park (park)",
+}
+
+
+def short_name(code, name):
+    if code in SHORT_OVERRIDES:
+        return SHORT_OVERRIDES[code]
+    for k in KEEP_HYPHEN:
+        name = name.replace(k, k.replace("-", "\u2010"))
+    return name.split("-")[0].replace("\u2010", "-")
+
+
+shorts = [short_name(ft["properties"]["nta2020"], ft["properties"]["ntaname"]) for ft in nta]
+dupes = {n for n in shorts if shorts.count(n) > 1}
+for i, ft in enumerate(nta):
+    parts = ft["properties"]["ntaname"].split("-")
+    if shorts[i] in dupes and len(parts) > 1 and ft["properties"]["nta2020"] not in SHORT_OVERRIDES:
+        shorts[i] = f"{parts[0]} ({parts[1]})"
+
 # ntatype 0 = residential; 5-9 = parks, cemeteries, airports, islands (outlined, not labeled)
 nfeats = []
-for ft, geom in zip(nta, nta_geoms):
+for ft, geom, short in zip(nta, nta_geoms, shorts):
     pr = ft["properties"]
     lp = geom.representative_point() if geom.geom_type != "MultiPolygon" else max(geom.geoms, key=lambda g: g.area).representative_point()
     m = json.loads(json.dumps(mapping(geom.simplify(0.00012, preserve_topology=True))),
                    parse_float=lambda v: round(float(v), 5))
     nfeats.append({"type": "Feature", "geometry": m, "properties": {
-        "name": pr["ntaname"], "boro": pr["boroname"], "label": pr["ntatype"] == "0",
+        "name": short, "full": pr["ntaname"], "code": pr["nta2020"], "boro": pr["boroname"],
+        "label": pr["ntatype"] == "0",
         "lp": [round(lp.x, 5), round(lp.y, 5)]}})
 with open(os.path.join(ROOT, "web", "neighborhoods.json"), "w") as f:
     json.dump({"type": "FeatureCollection", "features": nfeats}, f, separators=(",", ":"))
