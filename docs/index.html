@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body { margin: 0; } img { max-width: 100%; }</style>
+<title>NYC Cuisine Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an atlas plate. Map is the plate, the cuisine index sits beside it like a gazetteer, charts follow as figures. */
+:root {
+  --page: #f3f5f6;
+  --surface: #fcfcfb;
+  --water: #e6ecef;
+  --land: #fbfbf9;
+  --land-edge: #c7cfd3;
+  --ink: #0f1417;
+  --ink-2: #4b5459;
+  --ink-3: #848c90;
+  --hair: #dfe3e5;
+  --ring: rgba(15,20,23,0.10);
+  --ctx-dot: rgba(70,82,90,0.28);
+  --gap-band: rgba(132,140,144,0.12);
+  --accent: #1c5cab;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  --other: #b9bfc2;
+  --seq-0: #cde2fb; --seq-1: #86b6ef; --seq-2: #3987e5; --seq-3: #1c5cab; --seq-4: #0d366b;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0e1113; --surface: #171b1d; --water: #101416; --land: #1d2225; --land-edge: #343c40;
+    --ink: #f4f6f7; --ink-2: #bcc4c8; --ink-3: #818a8f; --hair: #2a3134; --ring: rgba(255,255,255,0.10);
+    --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767; --other: #4d5559;
+    --seq-0: #104281; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #6da7ec; --seq-4: #cde2fb;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0e1113; --surface: #171b1d; --water: #101416; --land: #1d2225; --land-edge: #343c40;
+  --ink: #f4f6f7; --ink-2: #bcc4c8; --ink-3: #818a8f; --hair: #2a3134; --ring: rgba(255,255,255,0.10);
+  --ctx-dot: rgba(190,200,206,0.22); --gap-band: rgba(129,138,143,0.12); --accent: #6da7ec;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767; --other: #4d5559;
+  --seq-0: #104281; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #6da7ec; --seq-4: #cde2fb;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--page); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; display: grid; gap: 22px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 4.4vw, 52px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.02; }
+h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+p { margin: 0; }
+.lede { max-width: 68ch; color: var(--ink-2); font-size: 15.5px; }
+.eyebrow { font-family: var(--f-data); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+header { display: grid; gap: 12px; }
+.headline-stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 4px; }
+.headline-stats div { display: grid; }
+.headline-stats b { font-family: var(--f-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+.headline-stats span { color: var(--ink-3); font-size: 12.5px; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--hair); border-radius: 10px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+.year-ctl { display: flex; align-items: center; gap: 12px; flex: 1 1 380px; min-width: 0; }
+.year-big { font-family: var(--f-display); font-weight: 700; font-size: 30px; line-height: 1; min-width: 3.1ch; font-variant-numeric: tabular-nums; }
+.slider-box { flex: 1; min-width: 0; display: grid; gap: 2px; }
+input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+.ticks { display: flex; justify-content: space-between; font-family: var(--f-data); font-size: 10.5px; color: var(--ink-3); padding-inline: 2px; }
+.ticks .gap { color: var(--ink-3); opacity: .55; }
+button, .seg label { font: inherit; color: var(--ink); }
+.btn { border: 1px solid var(--hair); background: var(--surface); border-radius: 999px; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--ink-3); }
+.btn:focus-visible, .seg input:focus-visible + span, .row:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.play { width: 38px; height: 38px; justify-content: center; padding: 0; font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--hair); border-radius: 999px; padding: 2px; background: var(--page); }
+.seg label { position: relative; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; padding: 5px 11px; border-radius: 999px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.seg input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--ring); font-weight: 600; }
+.ctl-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ctl-group > .eyebrow { margin-right: 2px; }
+
+/* atlas */
+.atlas { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+@media (max-width: 920px) { .atlas { grid-template-columns: minmax(0, 1fr); } }
+.plate { position: relative; background: var(--water); border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; aspect-ratio: 1 / 1.02; max-height: 82vh; width: 100%; }
+.plate canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.plate canvas:active { cursor: grabbing; }
+.map-legend { position: absolute; left: 12px; top: 12px; display: grid; gap: 6px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--ring); border-radius: 8px; padding: 10px 12px; max-width: calc(100% - 24px); pointer-events: auto; }
+.map-legend .lg-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px var(--surface); }
+.lg-row .n { margin-left: auto; padding-left: 14px; color: var(--ink-2); font-size: 12px; }
+.lg-row .x { border: 0; background: none; padding: 0 0 0 6px; cursor: pointer; color: var(--ink-3); font-size: 14px; line-height: 1; }
+.seq-legend { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.seq-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; width: 180px; max-width: 100%; }
+.seq-bar i { flex: 1; }
+.seq-ends { display: flex; justify-content: space-between; font-family: var(--f-data); font-size: 10.5px; color: var(--ink-3); }
+.zoom-btns { position: absolute; right: 12px; top: 12px; display: grid; gap: 4px; }
+.zoom-btns .btn { width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 8px; }
+.map-note { position: absolute; left: 12px; bottom: 10px; right: 12px; font-size: 11.5px; color: var(--ink-3); pointer-events: none; }
+.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); border: 1px solid var(--ring); box-shadow: 0 6px 24px rgba(0,0,0,.14); border-radius: 8px; padding: 9px 11px; font-size: 12.5px; max-width: 280px; display: grid; gap: 3px; }
+.tip .t-name { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.tip .t-sub { color: var(--ink-2); }
+.tip .t-meta { color: var(--ink-3); font-family: var(--f-data); font-size: 11px; }
+.tip .t-row { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; }
+.tip .t-row i { height: 2px; border-radius: 1px; }
+.tip .t-row b { font-family: var(--f-data); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+/* gazetteer */
+.gazetteer { background: var(--surface); border: 1px solid var(--hair); border-radius: 10px; display: grid; grid-template-rows: auto auto minmax(0, 1fr); max-height: 82vh; min-height: 420px; }
+.gz-head { padding: 14px 14px 10px; display: grid; gap: 8px; border-bottom: 1px solid var(--hair); }
+.gz-head p { color: var(--ink-2); font-size: 12.5px; }
+.search { width: 100%; padding: 7px 10px; border: 1px solid var(--hair); border-radius: 8px; background: var(--page); color: var(--ink); font: inherit; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--hair); }
+.chip { border: 1px dashed var(--land-edge); background: transparent; border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--ink-2); }
+.chip:hover { color: var(--ink); border-style: solid; }
+.gz-list { overflow-y: auto; padding: 4px 6px 10px; }
+.region { padding: 10px 8px 4px; display: flex; align-items: center; gap: 8px; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); font-family: var(--f-data); position: sticky; top: 0; background: var(--surface); }
+.region .sw { width: 8px; height: 8px; border-radius: 2px; }
+.region .n { margin-left: auto; }
+.row { display: grid; grid-template-columns: 14px minmax(0,1fr) 54px 44px 44px; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; border: 0; background: none; width: 100%; text-align: left; font: inherit; color: var(--ink); }
+.row:hover { background: var(--page); }
+.row .pk { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--land-edge); }
+.row[aria-pressed="true"] .pk { border: 0; box-shadow: 0 0 0 2px var(--surface); }
+.row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.row .ct { text-align: right; font-size: 12px; }
+.row .dl { text-align: right; font-size: 11px; color: var(--ink-3); }
+.row .dl.up { color: var(--ink-2); }
+.row svg { display: block; }
+.row svg path { fill: none; stroke: var(--ink-3); stroke-width: 1.25; }
+.row[aria-pressed="true"] svg path { stroke: var(--ink); }
+.gz-cols { display: grid; grid-template-columns: 14px minmax(0,1fr) 54px 44px 44px; gap: 8px; padding: 6px 14px 0; font-size: 10.5px; color: var(--ink-3); font-family: var(--f-data); }
+.gz-cols span:nth-child(n+3) { text-align: right; }
+
+/* figures */
+.figures { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+@media (max-width: 920px) { .figures { grid-template-columns: minmax(0,1fr); } }
+.fig { background: var(--surface); border: 1px solid var(--hair); border-radius: 10px; padding: 16px 16px 12px; display: grid; gap: 10px; min-width: 0; }
+.fig-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; justify-content: space-between; }
+.fig-head p { color: var(--ink-2); font-size: 12.5px; width: 100%; }
+.fig svg { width: 100%; height: auto; display: block; overflow: visible; }
+.fig svg text { fill: var(--ink-3); font-family: var(--f-data); font-size: 10.5px; }
+.fig .grid line { stroke: var(--hair); }
+.fig .axis-base { stroke: var(--land-edge); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); }
+.legend button { border: 0; background: none; padding: 2px 0; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font: inherit; font-size: 12px; }
+.legend button:hover { color: var(--ink); }
+.legend .sw { width: 10px; height: 10px; border-radius: 2px; }
+.legend .ln { width: 14px; height: 2px; border-radius: 1px; }
+.crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.band { cursor: pointer; }
+.band:hover { filter: brightness(1.06); }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; padding-top: 8px; border-top: 1px solid var(--hair); }
+.notes h3 { font-size: 15px; margin-bottom: 4px; }
+.notes p { color: var(--ink-2); font-size: 13px; max-width: 62ch; }
+.notes a { color: var(--accent); }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-family: var(--f-data); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">New York City · restaurant inspection archive · 2015–2026</div>
+    <h1>NYC Cuisine Atlas</h1>
+    <p class="lede">Every restaurant the Health Department inspected, sorted into 50+ cuisines and placed where it stood. Drag the year to see which kitchens opened, spread and disappeared. Pick up to three cuisines to compare them, or switch to the diversity view to see how many cuisines share a few blocks.</p>
+    <div class="headline-stats" id="stats"></div>
+  </header>
+
+  <div class="controls" role="group" aria-label="Map controls">
+    <div class="year-ctl">
+      <button class="btn play" id="play" aria-label="Play years">▶</button>
+      <div class="year-big num" id="yearLabel">2026</div>
+      <div class="slider-box">
+        <input type="range" id="year" min="2015" max="2026" step="1" value="2026" aria-label="Year">
+        <div class="ticks" id="ticks"></div>
+      </div>
+    </div>
+    <div class="ctl-group">
+      <span class="eyebrow">View</span>
+      <div class="seg" role="radiogroup" aria-label="Map view">
+        <label><input type="radio" name="mode" value="compare" id="mode-compare" checked><span>Compare cuisines</span></label>
+        <label><input type="radio" name="mode" value="diversity" id="mode-diversity"><span>Diversity</span></label>
+      </div>
+    </div>
+    <div class="ctl-group">
+      <span class="eyebrow">Show</span>
+      <div class="seg" role="radiogroup" aria-label="Which restaurants">
+        <label><input type="radio" name="show" value="open" id="show-open" checked><span>Open that year</span></label>
+        <label><input type="radio" name="show" value="new" id="show-new"><span>Opened that year</span></label>
+      </div>
+    </div>
+  </div>
+
+  <section class="atlas">
+    <div class="plate" id="plate">
+      <canvas id="map" aria-label="Map of New York City restaurants"></canvas>
+      <div class="loading" id="loading">Loading 27,000 restaurants…</div>
+      <div class="map-legend" id="mapLegend"></div>
+      <div class="zoom-btns">
+        <button class="btn" id="zin" aria-label="Zoom in">+</button>
+        <button class="btn" id="zout" aria-label="Zoom out">−</button>
+        <button class="btn" id="zreset" aria-label="Reset view">⟲</button>
+      </div>
+      <div class="map-note" id="mapNote"></div>
+    </div>
+
+    <aside class="gazetteer" aria-label="Cuisine index">
+      <div class="gz-head">
+        <h2>Cuisine index</h2>
+        <p>Click a cuisine to put it on the map (up to three). Counts are for the selected year; change is since 2015.</p>
+        <input class="search" id="search" type="search" placeholder="Find a cuisine…" aria-label="Find a cuisine">
+      </div>
+      <div class="chips" id="chips"></div>
+      <div style="min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr)">
+        <div class="gz-cols"><span></span><span>Cuisine</span><span>Trend</span><span id="colYear">2026</span><span>vs ’15</span></div>
+        <div class="gz-list" id="list"></div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="figures">
+    <div class="fig">
+      <div class="fig-head">
+        <h2>Selected cuisines over time</h2>
+        <div class="seg" role="radiogroup" aria-label="Line chart measure">
+          <label><input type="radio" name="lineMode" value="open" id="line-open" checked><span>Open</span></label>
+          <label><input type="radio" name="lineMode" value="new" id="line-new"><span>New openings</span></label>
+        </div>
+        <p>Restaurants open on July 1 of each year (October 1 for 2026). The shaded years fall between archived snapshots and are estimated.</p>
+      </div>
+      <div class="legend" id="lineLegend"></div>
+      <svg id="lineChart" viewBox="0 0 600 300" role="img" aria-label="Line chart of selected cuisines by year"></svg>
+    </div>
+    <div class="fig">
+      <div class="fig-head">
+        <h2 id="compTitle">The mix, year by year</h2>
+        <div class="seg" role="radiogroup" aria-label="Composition measure">
+          <label><input type="radio" name="compMode" value="share" id="comp-share" checked><span>Share</span></label>
+          <label><input type="radio" name="compMode" value="count" id="comp-count"><span>Count</span></label>
+        </div>
+        <p id="compNote">Share of ethnic restaurants by region of origin. Click a band or legend entry to break that region into its cuisines.</p>
+      </div>
+      <div class="crumb" id="crumb" hidden><button class="btn" id="compBack">← All regions</button><span id="crumbName"></span></div>
+      <div class="legend" id="compLegend"></div>
+      <svg id="compChart" viewBox="0 0 600 300" role="img" aria-label="Stacked area chart of restaurant mix by year"></svg>
+    </div>
+  </section>
+
+  <section class="notes">
+    <div>
+      <h3>Where the data comes from</h3>
+      <p>NYC Health Department <a href="https://data.cityofnewyork.us/Health/DOHMH-New-York-City-Restaurant-Inspection-Results/43nn-pn8j" target="_blank" rel="noopener">restaurant inspection results</a>. The live dataset only lists restaurants that are open now, so earlier years are rebuilt from 13 copies saved by the Internet Archive’s Wayback Machine (2015–2026). Together they cover 63,000 restaurants, including tens of thousands that have since closed.</p>
+    </div>
+    <div>
+      <h3>How cuisines are assigned</h3>
+      <p>Mostly from the cuisine label inspectors give each restaurant. Some labels are too broad, so a restaurant’s name can narrow them. A “Coffee/Tea” shop named Qahwah House becomes Yemeni, and a “Spanish” spot with Quisqueya in its name becomes Dominican. Name-based cuisines (Yemeni, Dominican, Himalayan, Jamaican and others) are undercounts. Chains such as Chipotle are left out, and so are American, pizza, coffee, bakery and similar labels.</p>
+    </div>
+    <div>
+      <h3>Dating openings and closings</h3>
+      <p>Opening is the first pre-permit inspection when we have one. Otherwise it is estimated from the restaurant’s permit ID, which the city issues in order. A restaurant closed somewhere between the last snapshot that lists it and the next one. There are no saved snapshots between April 2017 and November 2020, so those years are estimated, and short-lived restaurants from that stretch are missing. A change of ownership can make an old restaurant look new.</p>
+    </div>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(async function () {
+  const YEARS = d3.range(2015, 2027);
+  const GAP = [2017.32, 2020.85];
+  const SLOTS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7", "--s8"];
+  const css = () => getComputedStyle(document.documentElement);
+  const tok = (name) => css().getPropertyValue(name).trim();
+  const tAt = (y) => (y === 2026 ? 2026.75 : y + 0.5);
+
+  const [data, boros] = await Promise.all([
+    fetch("data.json").then((r) => r.json()),
+    fetch("boroughs.json").then((r) => r.json()),
+  ]);
+  document.getElementById("loading").remove();
+
+  const cuisines = data.cuisines;
+  const regions = data.regions;
+  const regionOf = new Array(cuisines.length);
+  regions.forEach((r, i) => r.cuisines.forEach((c) => (regionOf[c] = i)));
+  const rows = data.rows.map((r) => ({ lat: r[0], lon: r[1], c: r[2], open: r[3], close: r[4] || 9999, name: r[5], addr: r[6] }));
+  const OLD = 2013; // opened before the archive window
+
+  const alive = (r, t) => r.open <= t && r.close > t;
+  const openedIn = (r, y) => r.open >= OLD && r.open >= y && r.open < y + 1;
+
+  // counts[c][yi] for "open" and "new"
+  const nC = cuisines.length;
+  const cntOpen = cuisines.map(() => YEARS.map(() => 0));
+  const cntNew = cuisines.map(() => YEARS.map(() => 0));
+  for (const r of rows) {
+    YEARS.forEach((y, i) => {
+      if (alive(r, tAt(y))) cntOpen[r.c][i]++;
+      if (openedIn(r, y)) cntNew[r.c][i]++;
+    });
+  }
+
+  // ---------- state ----------
+  const state = { year: 2026, mode: "compare", show: "open", picks: [], lineMode: "open", compMode: "share", drill: null, query: "" };
+  const byName = Object.fromEntries(cuisines.map((c, i) => [c, i]));
+  state.picks = ["Taiwanese & Bubble Tea", "Bangladeshi", "Yemeni"].map((n) => byName[n]).filter((x) => x != null);
+  // Pick colors are bound to the pick, not its rank: slot stays with the cuisine until removed.
+  const pickSlot = new Map();
+  function assignSlots() {
+    for (const k of [...pickSlot.keys()]) if (!state.picks.includes(k)) pickSlot.delete(k);
+    for (const p of state.picks) if (!pickSlot.has(p)) {
+      const used = new Set(pickSlot.values());
+      pickSlot.set(p, [0, 1, 2].find((s) => !used.has(s)));
+    }
+  }
+  assignSlots();
+  const pickColor = (c) => tok(SLOTS[pickSlot.get(c)]);
+
+  // ---------- header stats ----------
+  function renderStats() {
+    const yi = YEARS.indexOf(state.year);
+    const total = d3.sum(cntOpen, (a) => a[yi]);
+    const nCuis = cntOpen.filter((a) => a[yi] > 0).length;
+    const opened = d3.sum(cntNew, (a) => a[yi]);
+    const el = document.getElementById("stats");
+    el.replaceChildren();
+    [[total.toLocaleString(), `ethnic restaurants open in ${state.year}`], [nCuis, "cuisines on the map"], [opened.toLocaleString(), `opened in ${state.year}${state.year === 2026 ? " (through Sept.)" : ""}`]].forEach(([v, l]) => {
+      const d = document.createElement("div");
+      const b = document.createElement("b"); b.textContent = v;
+      const s = document.createElement("span"); s.textContent = l;
+      d.append(b, s); el.append(d);
+    });
+  }
+
+  // ---------- map ----------
+  const plate = document.getElementById("plate");
+  const canvas = document.getElementById("map");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, dpr = 1;
+  const projection = d3.geoMercator();
+  let transform = d3.zoomIdentity;
+  const pts = new Float32Array(rows.length * 2);
+
+  function resize() {
+    const rect = plate.getBoundingClientRect();
+    W = rect.width; H = rect.height; dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    projection.fitExtent([[16, 16], [W - 16, H - 28]], boros);
+    const a = projection([-73.95, 40.70]), b = projection([-73.95, 40.70 + 400 / 111320]);
+    HEX_R = Math.abs(a[1] - b[1]) / Math.sqrt(3);
+    if (state.mode === "diversity") bins = hexBins();
+    rows.forEach((r, i) => { const p = projection([r.lon, r.lat]); pts[2 * i] = p[0]; pts[2 * i + 1] = p[1]; });
+    buildIndex(); draw();
+  }
+
+  let visible = [];   // indices of rows drawn (context)
+  let picked = [];    // indices of rows drawn in color
+  let quad = null;
+  function filterRows() {
+    const t = tAt(state.year);
+    visible = []; picked = [];
+    const pickSet = new Set(state.picks);
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const ok = state.show === "open" ? alive(r, t) : openedIn(r, state.year);
+      if (!ok) continue;
+      if (state.mode === "compare" && pickSet.has(r.c)) picked.push(i); else visible.push(i);
+    }
+  }
+  function buildIndex() {
+    const src = state.mode === "compare" && picked.length ? picked : visible.concat(picked);
+    quad = d3.quadtree(src, (i) => pts[2 * i], (i) => pts[2 * i + 1]);
+  }
+
+  // hex grid for diversity
+  let HEX_R = 9; // set in resize(): ~400 m flat-to-flat
+  function hexBins() {
+    const hex = (x, y) => {
+      const w = Math.sqrt(3) * HEX_R, h = 1.5 * HEX_R;
+      let row = Math.round(y / h), col = Math.round((x - (row & 1) * w / 2) / w);
+      return [col, row];
+    };
+    const bins = new Map();
+    for (const i of visible) {
+      const [c, r] = hex(pts[2 * i], pts[2 * i + 1]);
+      const k = c + "," + r;
+      let b = bins.get(k);
+      if (!b) { b = { c, r, cuis: new Map(), n: 0 }; bins.set(k, b); }
+      b.n++; b.cuis.set(rows[i].c, (b.cuis.get(rows[i].c) || 0) + 1);
+    }
+    return [...bins.values()];
+  }
+  let bins = [];
+  const hexCenter = (b) => [b.c * Math.sqrt(3) * HEX_R + (b.r & 1) * Math.sqrt(3) * HEX_R / 2, b.r * 1.5 * HEX_R];
+  const DIV_STEPS = [1, 4, 8, 13, 19];
+  const divColor = (n) => tok("--seq-" + Math.max(0, d3.bisectRight(DIV_STEPS, n) - 1));
+
+  const geoPath = d3.geoPath(projection);
+  function draw() {
+    if (!W) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = tok("--water"); ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(transform.x, transform.y); ctx.scale(transform.k, transform.k);
+    const k = transform.k;
+    ctx.beginPath(); d3.geoPath(projection, ctx)(boros);
+    ctx.fillStyle = tok("--land"); ctx.fill();
+    ctx.lineWidth = 1 / k; ctx.strokeStyle = tok("--land-edge"); ctx.stroke();
+
+    if (state.mode === "diversity") {
+      const hp = d3.range(6).map((a) => [Math.cos(Math.PI / 6 + a * Math.PI / 3) * (HEX_R - 0.6), Math.sin(Math.PI / 6 + a * Math.PI / 3) * (HEX_R - 0.6)]);
+      for (const b of bins) {
+        const [x, y] = hexCenter(b);
+        ctx.beginPath(); hp.forEach(([dx, dy], j) => (j ? ctx.lineTo(x + dx, y + dy) : ctx.moveTo(x + dx, y + dy))); ctx.closePath();
+        ctx.fillStyle = divColor(b.cuis.size); ctx.fill();
+      }
+    } else {
+      const rCtx = Math.max(0.6, 1.1 / Math.sqrt(k)) ;
+      ctx.fillStyle = tok("--ctx-dot");
+      for (const i of visible) { ctx.fillRect(pts[2 * i] - rCtx, pts[2 * i + 1] - rCtx, rCtx * 2, rCtx * 2); }
+      const rP = Math.max(1.4, 3.2 / Math.sqrt(k));
+      const ring = tok("--surface");
+      const colors = new Map(state.picks.map((c) => [c, pickColor(c)]));
+      // smaller groups drawn last so they stay visible
+      const order = [...picked].sort((a, b) => cntOpen[rows[b].c][11] - cntOpen[rows[a].c][11]);
+      ctx.lineWidth = 1.2 / k; ctx.strokeStyle = ring;
+      for (const i of order) {
+        ctx.beginPath(); ctx.arc(pts[2 * i], pts[2 * i + 1], rP, 0, Math.PI * 2);
+        ctx.fillStyle = colors.get(rows[i].c); ctx.fill(); ctx.stroke();
+      }
+    }
+    if (hover != null && state.mode === "compare") {
+      ctx.beginPath(); ctx.arc(pts[2 * hover], pts[2 * hover + 1], 6 / k, 0, Math.PI * 2);
+      ctx.lineWidth = 2 / k; ctx.strokeStyle = tok("--ink"); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const zoom = d3.zoom().scaleExtent([1, 24]).on("zoom", (e) => { transform = e.transform; hideTip(); draw(); });
+  const sel = d3.select(canvas).call(zoom);
+  document.getElementById("zin").onclick = () => sel.transition().duration(250).call(zoom.scaleBy, 1.8);
+  document.getElementById("zout").onclick = () => sel.transition().duration(250).call(zoom.scaleBy, 1 / 1.8);
+  document.getElementById("zreset").onclick = () => sel.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+
+  // ---------- tooltip ----------
+  const tip = document.getElementById("tip");
+  let hover = null;
+  function showTip(x, y, build) {
+    tip.replaceChildren(); build(tip); tip.hidden = false;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = x + 14, top = y + 14;
+    if (left + tw > window.innerWidth - 8) left = x - tw - 14;
+    if (top + th > window.innerHeight - 8) top = y - th - 14;
+    tip.style.left = Math.max(8, left) + "px"; tip.style.top = Math.max(8, top) + "px";
+  }
+  function hideTip() { tip.hidden = true; if (hover != null) { hover = null; draw(); } }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const fmtDate = (f) => { const y = Math.floor(f); const m = Math.min(11, Math.floor((f - y) * 12)); return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m] + " " + y; };
+
+  canvas.addEventListener("pointermove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const [mx, my] = transform.invert([e.clientX - rect.left, e.clientY - rect.top]);
+    if (state.mode === "diversity") {
+      const w = Math.sqrt(3) * HEX_R, h = 1.5 * HEX_R;
+      let best = null, bd = Infinity;
+      for (const b of bins) { const [x, y] = hexCenter(b); const d = (x - mx) ** 2 + (y - my) ** 2; if (d < bd) { bd = d; best = b; } }
+      if (!best || bd > HEX_R * HEX_R) return hideTip();
+      showTip(e.clientX, e.clientY, (t) => {
+        t.append(el("div", "t-name", `${best.cuis.size} cuisines · ${best.n} restaurants`));
+        const top = [...best.cuis.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+        for (const [c, n] of top) { const r = el("div", "t-row"); const i = el("i"); i.style.background = tok(SLOTS[regionOf[c]]); r.append(i, el("span", "t-sub", cuisines[c]), el("b", null, n)); t.append(r); }
+        if (best.cuis.size > 6) t.append(el("div", "t-meta", `+ ${best.cuis.size - 6} more`));
+      });
+      return;
+    }
+    const found = quad && quad.find(mx, my, 12 / transform.k);
+    if (found == null) return hideTip();
+    if (hover !== found) { hover = found; draw(); }
+    const r = rows[found];
+    showTip(e.clientX, e.clientY, (t) => {
+      t.append(el("div", "t-name", r.name || "Unnamed"));
+      t.append(el("div", "t-sub", cuisines[r.c] + " · " + r.addr));
+      const opened = r.open < OLD ? "Open before 2013" : "Opened ~" + fmtDate(r.open);
+      const closed = r.close > 9000 ? "still open" : "closed ~" + fmtDate(r.close);
+      t.append(el("div", "t-meta", opened + " · " + closed));
+    });
+  });
+  canvas.addEventListener("pointerleave", hideTip);
+
+  // ---------- map legend ----------
+  function renderMapLegend() {
+    const lg = document.getElementById("mapLegend");
+    lg.replaceChildren();
+    const yi = YEARS.indexOf(state.year);
+    if (state.mode === "diversity") {
+      const box = el("div", "seq-legend");
+      box.append(el("div", null, "Distinct cuisines per hexagon (~400 m)"));
+      const bar = el("div", "seq-bar");
+      for (let s = 0; s < 5; s++) { const i = el("i"); i.style.background = tok("--seq-" + s); bar.append(i); }
+      const ends = el("div", "seq-ends"); ["1", "4", "8", "13", "19+"].forEach((v) => ends.append(el("span", null, v)));
+      box.append(bar, ends); lg.append(box);
+      document.getElementById("mapNote").textContent = "Hover a hexagon to see which cuisines are there.";
+      return;
+    }
+    if (!state.picks.length) lg.append(el("div", "t-sub", "Pick cuisines from the index →"));
+    for (const c of state.picks) {
+      const row = el("div", "lg-row");
+      const d = el("span", "dot"); d.style.background = pickColor(c);
+      const n = (state.show === "open" ? cntOpen : cntNew)[c][yi];
+      const x = el("button", "x", "×"); x.setAttribute("aria-label", "Remove " + cuisines[c]); x.onclick = () => togglePick(c);
+      row.append(d, el("span", null, cuisines[c]), el("span", "n num", n.toLocaleString()), x);
+      lg.append(row);
+    }
+    const ctxRow = el("div", "lg-row"); const d = el("span", "dot"); d.style.background = tok("--ctx-dot"); d.style.boxShadow = "none";
+    ctxRow.append(d, el("span", "t-meta", "all other cuisines"));
+    lg.append(ctxRow);
+    document.getElementById("mapNote").textContent = "Scroll or pinch to zoom · hover a dot for the restaurant";
+  }
+
+  // ---------- gazetteer ----------
+  const STORIES = [
+    ["Yemeni coffee rush", ["Yemeni"]],
+    ["Bubble tea everywhere", ["Taiwanese & Bubble Tea"]],
+    ["South Asian New York", ["Bangladeshi", "Pakistani", "Indian"]],
+    ["Himalayan Queens", ["Himalayan (Tibetan/Nepali)"]],
+    ["Korean vs Japanese", ["Korean", "Japanese"]],
+    ["Colombian, Dominican, Ecuadorian", ["Colombian", "Dominican", "Ecuadorian"]],
+    ["Russian to Uzbek & Georgian", ["Russian", "Uzbek & Central Asian", "Georgian"]],
+  ];
+  const chips = document.getElementById("chips");
+  for (const [label, names] of STORIES) {
+    const b = el("button", "chip", label);
+    b.onclick = () => { state.picks = names.map((n) => byName[n]).filter((x) => x != null).slice(0, 3); pickSlot.clear(); refreshAll(); };
+    chips.append(b);
+  }
+
+  function spark(series) {
+    const w = 54, h = 16, max = d3.max(series) || 1;
+    const x = d3.scaleLinear([0, series.length - 1], [1, w - 1]);
+    const y = d3.scaleLinear([0, max], [h - 1, 1]);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", w); svg.setAttribute("height", h); svg.setAttribute("aria-hidden", "true");
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", d3.line((d, i) => x(i), (d) => y(d))(series));
+    svg.append(p); return svg;
+  }
+  function renderList() {
+    const list = document.getElementById("list");
+    list.replaceChildren();
+    document.getElementById("colYear").textContent = state.year;
+    const yi = YEARS.indexOf(state.year);
+    const q = state.query.toLowerCase();
+    regions.forEach((reg, ri) => {
+      const cs = reg.cuisines.filter((c) => !q || cuisines[c].toLowerCase().includes(q) || reg.name.toLowerCase().includes(q))
+        .sort((a, b) => cntOpen[b][yi] - cntOpen[a][yi]);
+      if (!cs.length) return;
+      const h = el("div", "region"); const sw = el("span", "sw"); sw.style.background = tok(SLOTS[ri]);
+      h.append(sw, el("span", null, reg.name), el("span", "n num", d3.sum(reg.cuisines, (c) => cntOpen[c][yi]).toLocaleString()));
+      list.append(h);
+      for (const c of cs) {
+        const b = el("button", "row"); b.setAttribute("aria-pressed", state.picks.includes(c));
+        const pk = el("span", "pk"); if (state.picks.includes(c)) pk.style.background = pickColor(c);
+        const now = cntOpen[c][yi], then = cntOpen[c][0];
+        const delta = then ? Math.round((now / then - 1) * 100) : null;
+        const dl = el("span", "dl num" + (delta > 0 ? " up" : ""), delta == null ? "new" : (delta > 0 ? "+" : "") + delta + "%");
+        b.append(pk, el("span", "nm", cuisines[c]), spark(cntOpen[c]), el("span", "ct num", now.toLocaleString()), dl);
+        b.title = `${cuisines[c]}: ${then} in 2015 → ${now} in ${state.year}`;
+        b.onclick = () => togglePick(c);
+        list.append(b);
+      }
+    });
+  }
+  document.getElementById("search").addEventListener("input", (e) => { state.query = e.target.value; renderList(); });
+
+  function togglePick(c) {
+    const i = state.picks.indexOf(c);
+    if (i >= 0) state.picks.splice(i, 1);
+    else { if (state.picks.length >= 3) state.picks.shift(); state.picks.push(c); }
+    if (state.mode !== "compare") { state.mode = "compare"; document.getElementById("mode-compare").checked = true; }
+    refreshAll();
+  }
+
+  // ---------- line chart ----------
+  const LM = { t: 14, r: 16, b: 26, l: 40 }, LW = 600, LH = 300;
+  const lx = d3.scaleLinear([2015, 2026], [LM.l, LW - LM.r]);
+  function gapBand(svg, y0, y1) {
+    svg.append("rect").attr("x", lx(GAP[0])).attr("width", lx(GAP[1]) - lx(GAP[0])).attr("y", y0).attr("height", y1 - y0).attr("fill", "var(--gap-band)");
+    svg.append("text").attr("x", (lx(GAP[0]) + lx(GAP[1])) / 2).attr("y", y0 + 11).attr("text-anchor", "middle").text("estimated");
+  }
+  function xAxis(svg, x, y) {
+    svg.append("line").attr("class", "axis-base").attr("x1", x.range()[0]).attr("x2", x.range()[1]).attr("y1", y).attr("y2", y);
+    [2015, 2017, 2019, 2021, 2023, 2025].forEach((v) => svg.append("text").attr("x", x(v)).attr("y", y + 16).attr("text-anchor", "middle").text(v));
+  }
+  function crosshair(svg, x, y0, y1, rowsAt) {
+    const g = svg.append("g").style("pointer-events", "none").attr("opacity", 0);
+    const ln = g.append("line").attr("y1", y0).attr("y2", y1).attr("stroke", "var(--ink-3)").attr("stroke-width", 1);
+    svg.append("rect").attr("x", x.range()[0]).attr("width", x.range()[1] - x.range()[0]).attr("y", y0).attr("height", y1 - y0).attr("fill", "transparent")
+      .on("pointermove", function (e) {
+        const [px] = d3.pointer(e, this);
+        const yr = Math.max(2015, Math.min(2026, Math.round(x.invert(px))));
+        g.attr("opacity", 1); ln.attr("x1", x(yr)).attr("x2", x(yr));
+        showTip(e.clientX, e.clientY, (t) => {
+          t.append(el("div", "t-name", yr + (yr >= 2018 && yr <= 2020 ? " (estimated)" : "")));
+          for (const [color, label, val] of rowsAt(YEARS.indexOf(yr))) {
+            const r = el("div", "t-row"); const i = el("i"); i.style.background = color;
+            r.append(i, el("span", "t-sub", label), el("b", null, val)); t.append(r);
+          }
+        });
+      })
+      .on("pointerleave", () => { g.attr("opacity", 0); tip.hidden = true; });
+  }
+  function renderLine() {
+    const svg = d3.select("#lineChart"); svg.selectAll("*").remove();
+    const src = state.lineMode === "open" ? cntOpen : cntNew;
+    const series = state.picks.map((c) => ({ c, v: src[c] }));
+    const legend = document.getElementById("lineLegend"); legend.replaceChildren();
+    for (const s of series) { const b = el("button"); const l = el("span", "ln"); l.style.background = pickColor(s.c); b.append(l, document.createTextNode(cuisines[s.c])); b.onclick = () => togglePick(s.c); legend.append(b); }
+    const max = d3.max(series, (s) => d3.max(s.v)) || 10;
+    const y = d3.scaleLinear([0, max], [LH - LM.b, LM.t]).nice();
+    gapBand(svg, LM.t, LH - LM.b);
+    const g = svg.append("g").attr("class", "grid");
+    y.ticks(5).forEach((v) => { if (v) g.append("line").attr("x1", LM.l).attr("x2", LW - LM.r).attr("y1", y(v)).attr("y2", y(v)); svg.append("text").attr("x", LM.l - 8).attr("y", y(v) + 3.5).attr("text-anchor", "end").text(v.toLocaleString()); });
+    xAxis(svg, lx, LH - LM.b);
+    svg.append("line").attr("x1", lx(state.year)).attr("x2", lx(state.year)).attr("y1", LM.t).attr("y2", LH - LM.b).attr("stroke", "var(--ink-3)").attr("stroke-dasharray", "2 3");
+    if (!series.length) svg.append("text").attr("x", LW / 2).attr("y", LH / 2).attr("text-anchor", "middle").text("Pick a cuisine from the index");
+    for (const s of series) {
+      const col = pickColor(s.c);
+      svg.append("path").attr("d", d3.line((d, i) => lx(YEARS[i]), (d) => y(d))(s.v)).attr("fill", "none").attr("stroke", col).attr("stroke-width", 2).attr("stroke-linejoin", "round");
+      const last = s.v.length - 1;
+      svg.append("circle").attr("cx", lx(YEARS[last])).attr("cy", y(s.v[last])).attr("r", 4).attr("fill", col).attr("stroke", "var(--surface)").attr("stroke-width", 2);
+    }
+    crosshair(svg, lx, LM.t, LH - LM.b, (yi) => series.map((s) => [pickColor(s.c), cuisines[s.c], s.v[yi].toLocaleString()]));
+  }
+
+  // ---------- composition chart ----------
+  function compSeries() {
+    if (state.drill == null) {
+      return regions.map((r, ri) => ({ key: "r" + ri, label: r.name, color: tok(SLOTS[ri]), v: YEARS.map((y, yi) => d3.sum(r.cuisines, (c) => cntOpen[c][yi])), region: ri }));
+    }
+    const reg = regions[state.drill];
+    const sorted = [...reg.cuisines].sort((a, b) => d3.sum(cntOpen[b]) - d3.sum(cntOpen[a]));
+    const top = sorted.slice(0, 7), rest = sorted.slice(7);
+    const s = top.map((c, i) => ({ key: "c" + c, label: cuisines[c], color: tok(SLOTS[i]), v: cntOpen[c], cuisine: c }));
+    if (rest.length) s.push({ key: "other", label: `Other (${rest.length})`, color: tok("--other"), v: YEARS.map((y, yi) => d3.sum(rest, (c) => cntOpen[c][yi])) });
+    return s;
+  }
+  function renderComp() {
+    const svg = d3.select("#compChart"); svg.selectAll("*").remove();
+    const series = compSeries();
+    const share = state.compMode === "share";
+    const tot = YEARS.map((y, yi) => d3.sum(series, (s) => s.v[yi]));
+    const table = YEARS.map((y, yi) => Object.fromEntries([["year", y], ...series.map((s) => [s.key, share ? s.v[yi] / (tot[yi] || 1) : s.v[yi]])]));
+    const stack = d3.stack().keys(series.map((s) => s.key))(table);
+    const y = d3.scaleLinear([0, share ? 1 : d3.max(tot)], [LH - LM.b, LM.t]).nice();
+    gapBand(svg, LM.t, LH - LM.b);
+    const area = d3.area().x((d) => lx(d.data.year)).y0((d) => y(d[0])).y1((d) => y(d[1]));
+    stack.forEach((layer, i) => {
+      const s = series[i];
+      const p = svg.append("path").attr("d", area(layer)).attr("fill", s.color).attr("stroke", "var(--surface)").attr("stroke-width", 1.5);
+      if (s.region != null) p.attr("class", "band").on("click", () => { state.drill = s.region; renderComp(); });
+      else if (s.cuisine != null) p.attr("class", "band").on("click", () => togglePick(s.cuisine));
+    });
+    y.ticks(5).forEach((v) => svg.append("text").attr("x", LM.l - 8).attr("y", y(v) + 3.5).attr("text-anchor", "end").text(share ? Math.round(v * 100) + "%" : v.toLocaleString()));
+    xAxis(svg, lx, LH - LM.b);
+    svg.append("line").attr("x1", lx(state.year)).attr("x2", lx(state.year)).attr("y1", LM.t).attr("y2", LH - LM.b).attr("stroke", "var(--ink)").attr("stroke-opacity", 0.5).attr("stroke-dasharray", "2 3");
+    // direct labels on the four largest bands at the right edge
+    const lastI = YEARS.length - 1;
+    const ranked = stack.map((layer, i) => ({ i, h: layer[lastI][1] - layer[lastI][0], mid: (layer[lastI][0] + layer[lastI][1]) / 2 })).sort((a, b) => b.h - a.h).slice(0, 4);
+    for (const r of ranked) if (y(stack[r.i][lastI][0]) - y(stack[r.i][lastI][1]) > 14)
+      svg.append("text").attr("x", LW - LM.r - 4).attr("y", y(r.mid) + 3.5).attr("text-anchor", "end").style("fill", "var(--surface)").style("font-weight", 500).style("pointer-events", "none").text(series[r.i].label.split(/[ ,&(]/)[0]);
+    crosshair(svg, lx, LM.t, LH - LM.b, (yi) => [...series].reverse().map((s) => [s.color, s.label, share ? (100 * s.v[yi] / (tot[yi] || 1)).toFixed(1) + "%" : s.v[yi].toLocaleString()]));
+    // re-enable band clicks above the crosshair hit layer: route clicks to band under pointer
+    svg.select("rect[fill=transparent]").on("click", function (e) {
+      const [px, py] = d3.pointer(e, this);
+      const yi = YEARS.indexOf(Math.max(2015, Math.min(2026, Math.round(lx.invert(px)))));
+      const val = y.invert(py);
+      const hit = stack.findIndex((l) => l[yi][0] <= val && val < l[yi][1]);
+      if (hit < 0) return;
+      const s = series[hit];
+      if (s.region != null) { state.drill = s.region; tip.hidden = true; renderComp(); }
+      else if (s.cuisine != null) togglePick(s.cuisine);
+    }).style("cursor", "pointer");
+    // legend
+    const lg = document.getElementById("compLegend"); lg.replaceChildren();
+    for (const s of series) {
+      const b = el("button"); const sw = el("span", "sw"); sw.style.background = s.color;
+      b.append(sw, document.createTextNode(s.label));
+      if (s.region != null) b.onclick = () => { state.drill = s.region; renderComp(); };
+      else if (s.cuisine != null) b.onclick = () => togglePick(s.cuisine);
+      lg.append(b);
+    }
+    document.getElementById("crumb").hidden = state.drill == null;
+    document.getElementById("crumbName").textContent = state.drill == null ? "" : regions[state.drill].name;
+    document.getElementById("compTitle").textContent = state.drill == null ? "The mix, year by year" : regions[state.drill].name + ", year by year";
+    document.getElementById("compNote").textContent = state.drill == null
+      ? "Share of ethnic restaurants by region of origin. Click a band or legend entry to break that region into its cuisines."
+      : "Cuisines within this region. Click a band to put that cuisine on the map.";
+  }
+  document.getElementById("compBack").onclick = () => { state.drill = null; renderComp(); };
+
+  // ---------- wiring ----------
+  const ticks = document.getElementById("ticks");
+  YEARS.forEach((y) => ticks.append(el("span", y >= 2018 && y <= 2020 ? "gap" : null, "’" + String(y).slice(2))));
+  const slider = document.getElementById("year");
+  function setYear(y) { state.year = y; slider.value = y; document.getElementById("yearLabel").textContent = y; refreshMap(); renderStats(); renderList(); renderLine(); renderComp(); }
+  slider.addEventListener("input", (e) => setYear(+e.target.value));
+  let timer = null;
+  const playBtn = document.getElementById("play");
+  playBtn.onclick = () => {
+    if (timer) { clearInterval(timer); timer = null; playBtn.textContent = "▶"; playBtn.setAttribute("aria-label", "Play years"); return; }
+    if (state.year === 2026) setYear(2015);
+    playBtn.textContent = "❚❚"; playBtn.setAttribute("aria-label", "Pause");
+    timer = setInterval(() => { if (state.year >= 2026) { playBtn.click(); return; } setYear(state.year + 1); }, 900);
+  };
+  document.querySelectorAll("input[name=mode]").forEach((r) => r.addEventListener("change", (e) => { state.mode = e.target.value; refreshMap(); }));
+  document.querySelectorAll("input[name=show]").forEach((r) => r.addEventListener("change", (e) => { state.show = e.target.value; refreshMap(); }));
+  document.querySelectorAll("input[name=lineMode]").forEach((r) => r.addEventListener("change", (e) => { state.lineMode = e.target.value; renderLine(); }));
+  document.querySelectorAll("input[name=compMode]").forEach((r) => r.addEventListener("change", (e) => { state.compMode = e.target.value; renderComp(); }));
+
+  function refreshMap() {
+    filterRows();
+    bins = state.mode === "diversity" ? hexBins() : [];
+    buildIndex(); renderMapLegend(); draw();
+  }
+  function refreshAll() { assignSlots(); refreshMap(); renderList(); renderLine(); renderComp(); }
+
+  new ResizeObserver(() => resize()).observe(plate);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { refreshAll(); });
+  new MutationObserver(() => refreshAll()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  renderStats(); refreshAll(); resize();
+})();
+</script>
+</body>
+</html>

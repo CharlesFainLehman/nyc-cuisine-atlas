@@ -1,0 +1,7 @@
+.venv/
+.claude/
+__pycache__/
+.DS_Store
+data/wayback/
+data/raw_inspections.csv
+data/geocode.log
